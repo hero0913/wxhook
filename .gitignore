@@ -1,0 +1,24 @@
+doc/
+
+# 构建产物
+Debug/
+Release/
+x64/
+x86/
+
+# VS 临时文件
+.vs/
+*.user
+*.suo
+*.aps
+*.pdb
+*.obj
+*.tlog
+*.idb
+*.ilk
+*.exp
+*.log
+*.iobj
+*.ipdb
+*.lastbuildstate
+*.unsuccessfulbuild
