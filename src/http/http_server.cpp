@@ -5,6 +5,7 @@
 #include "self_info.h"        // GetLoginStateResponse / GetSelfInfoResponse
 #include "send_msg.h"          // SendMsgResponse
 #include "contact_list.h"      // GetContactListResponse
+#include "qr_url.h"            // GetQRUrlResponse
 
 #include "httplib.h"
 #include <atomic>
@@ -65,6 +66,12 @@ void RegisterRoutes() {
     // 获取好友/群聊列表
     g_server.Get("/contact/list", [](const httplib::Request&, httplib::Response& res) {
         res.set_content(GetContactListResponse(), "application/json");
+    });
+    // 获取登录二维码 URL（直接读偏移，无 Hook，注入后立即可读）
+    // ?path=... : 额外生成二维码 PNG 保存到该路径
+    g_server.Get("/qr/url", [](const httplib::Request& req, httplib::Response& res) {
+        std::string path = req.has_param("path") ? req.get_param_value("path") : "";
+        res.set_content(GetQRUrlResponse(path), "application/json");
     });
 }
 } // namespace

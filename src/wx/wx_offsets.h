@@ -11,6 +11,7 @@
 
 // ── 个人信息 ──
 #define WxID                  0x4368354    // 微信ID ASCII 指针基址
+#define WxQRUrlOffset         0x436C398    // 登录二维码 URL 后缀 ASCII 指针基址
 #define WxCount               WxID + 0x64   // 微信号
 #define WxNickName            WxID + 0x10C  // 昵称
 #define WxNation              WxID + 0xAC   // 国家

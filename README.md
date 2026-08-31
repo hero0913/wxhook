@@ -70,6 +70,7 @@ wxhook/
 | GET | `/self/info` | 当前登录账号信息（未登录返回业务码 401） |
 | POST | `/send` | 发送文本消息（body: `{"wxid":"...","content":"..."}`） |
 | GET | `/contact/list` | 获取好友/群聊列表（群聊 wxcount/remark 为空） |
+| GET | `/qr/url[?path=]` | 登录二维码 URL（带 path 额外生成 PNG 保存） |
 
 ## 消息流向
 
@@ -149,6 +150,29 @@ curl http://127.0.0.1:8888/contact/list
 }
 ```
 
+## 获取登录二维码示例
+
+```bash
+# 只获取二维码 URL（注入后立即可读，无 Hook 时序依赖）
+curl http://127.0.0.1:8888/qr/url
+
+# 获取 URL 并生成二维码 PNG 保存到指定路径
+curl "http://127.0.0.1:8888/qr/url?path=C:\tmp\qr.png"
+```
+
+返回示例（带 path）：
+
+```json
+{
+  "code": 200,
+  "msg": "ok",
+  "url": "http://weixin.qq.com/x/QdpCp1DjBQlloAAAAAAA",
+  "suffix": "QdpCp1DjBQlloAAAAAAA",
+  "saved_path": "C:\\tmp\\qr.png",
+  "saved": true
+}
+```
+
 ## 后续开发计划
 
 - 聊天记录数据库读取（解密 SQLite + MSG.db / MicroMsg.db）
@@ -156,6 +180,12 @@ curl http://127.0.0.1:8888/contact/list
 - 消息记录持久化存储
 
 ## 更新说明
+
+### 2026-08-31
+
+- 新增 `GET /qr/url` 接口，读取登录二维码 URL（直接读偏移，无 Hook）
+- 支持 `?path=` 参数，服务端生成二维码 PNG 保存到指定路径
+- 引入 qrcodegen + stb_image_write 单头库（二维码生成 + PNG 编码）
 
 ### 2026-08-28
 
