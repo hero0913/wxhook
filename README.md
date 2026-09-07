@@ -50,13 +50,15 @@ wxhook/
 │       ├── self_info.cpp     # 获取登录状态与个人信息
 │       ├── receive_msg.cpp   # Hook 接收消息，SEH 解析字段，异步转发
 │       ├── image_decoder.cpp # 图片自动下载 Patch + XOR 解密 .dat→.png
-│       ├── voice_msg.cpp     # Hook 语音数据，异步保存 .silk
+│       ├── voice_msg.cpp     # Hook 语音数据，异步保存 .silk + 转 .wav
+│       ├── silk_dec.cpp      # SILK 解码器封装（SILK→PCM）
 │       ├── send_msg.cpp      # 发送文本消息（WeChatString + 内联汇编）
 │       └── contact_list.cpp   # 获取好友/群聊列表（POD + SEH 保护）
 ├── third_party/
 │   ├── httplib.h             # cpp-httplib 单头库
 │   ├── json.hpp              # nlohmann/json 单头库
-│   └── detours.h             # Detours 头（未用，备用）
+│   ├── detours.h             # Detours 头（未用，备用）
+│   └── silk_dec/             # Skype SILK SDK（解码 .silk → PCM）
 ├── tools/receiver.py         # Python 接收端（监听 9999，打印 log 与 message）
 └── wxhook.sln / wxhook.vcxproj
 ```
@@ -81,7 +83,7 @@ wxhook/
     ├─ CreateThread 异步线程（不阻塞微信）
     │   ├─ POST /message → receiver.py:9999
     │   └─ 图片: DecodeImageAsync 入队 → 工作线程 XOR 解密
-    └─ 语音: Hook 原始数据 → 异步线程保存 .silk
+    └─ 语音: Hook 原始数据 → 异步线程保存 .silk + 解码为 .wav
 
 发送（外部 → DLL → 微信）:
   POST /send {"wxid":"...","content":"..."}
@@ -101,7 +103,8 @@ wxhook/
 | `LOG_PORT` / `MSG_PORT` | 9999 | receiver.py 监听端口 |
 | `ENABLE_HOOKS` | true | Hook 总开关 |
 | `ENABLE_IMAGE_DECODE` | true | 图片落盘解密 |
-| `ENABLE_VOICE_SAVE` | true | 语音落盘保存 |
+| `ENABLE_VOICE_SAVE` | true | 语音落盘保存 .silk |
+| `ENABLE_VOICE_CONVERT` | true | SILK→WAV 转换（保留原 .silk） |
 | `STARTUP_DELAY_MS` | 3000 | 注入后延迟启动（毫秒） |
 
 ## 编译
@@ -180,6 +183,13 @@ curl "http://127.0.0.1:8888/qr/url?path=C:\tmp\qr.png"
 - 消息记录持久化存储
 
 ## 更新说明
+
+### 2026-09-07
+
+- 新增语音 SILK→WAV 转换（保留原 `.silk`，输出 PCM 16-bit mono 24000Hz `.wav`）
+- 集成 Skype SILK SDK 源码至 `third_party/silk_dec/`（unity build，C 当 C++ 编译）
+- 兼容微信 `.silk` 变体格式（前置 type 字节 + `#!SILK_V3` 头）
+- 配置项 `ENABLE_VOICE_CONVERT` 控制开关
 
 ### 2026-08-31
 

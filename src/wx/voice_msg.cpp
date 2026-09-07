@@ -2,12 +2,15 @@
 #include "voice_msg.h"
 #include "wechat.h"          // GetWeChatWinBase
 #include "http_client.h"     // PostLog
-#include "config.h"          // cfg::ENABLE_VOICE_SAVE
+#include "config.h"          // cfg::ENABLE_VOICE_SAVE / cfg::ENABLE_VOICE_CONVERT
 #include "wx_offsets.h"      // WxReciveVoiceData / WxReciveVoiceDataCall
+#include "silk_dec.h"        // silk_dec::Decode（SILK→PCM）
 
 #include <string>
 #include <cstring>
 #include <cstdlib>
+#include <vector>
+#include <cstdint>
 
 namespace {
 
@@ -64,27 +67,88 @@ static DWORD WINAPI SaveVoiceThread(LPVOID lp)
 
     CreateDirectoryA("C:\\VoiceLogs", NULL);
 
-    char path[MAX_PATH];
-    sprintf_s(path, MAX_PATH, "C:\\VoiceLogs\\%lld.silk", (long long)p->svrid);
+    char silkPath[MAX_PATH];
+    sprintf_s(silkPath, MAX_PATH, "C:\\VoiceLogs\\%lld.silk", (long long)p->svrid);
 
     // 已存在则跳过（避免重复保存）
-    if (GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES) {
+    if (GetFileAttributesA(silkPath) != INVALID_FILE_ATTRIBUTES) {
         PostLog("语音保存: 文件已存在，跳过");
         free(p->data);
         delete p;
         return 0;
     }
 
-    HANDLE hFile = CreateFileA(path, GENERIC_WRITE, 0, NULL,
+    // ---------- 1. 写 .silk 原始文件 ----------
+    HANDLE hFile = CreateFileA(silkPath, GENERIC_WRITE, 0, NULL,
                                CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile != INVALID_HANDLE_VALUE) {
         DWORD written = 0;
         WriteFile(hFile, p->data, p->length, &written, NULL);
         CloseHandle(hFile);
-        PostLog(std::string("语音保存成功: ") + path +
+        PostLog(std::string("语音保存成功: ") + silkPath +
                 " (size=" + std::to_string(p->length) + ")");
     } else {
         PostLog("语音保存: CreateFileA 失败");
+    }
+
+    // ---------- 2. SILK → WAV 转换 ----------
+    if (cfg::ENABLE_VOICE_CONVERT) {
+        std::vector<unsigned char> pcm;
+        int sampleRate = 0;
+
+        if (silk_dec::Decode(p->data, p->length, pcm, sampleRate) && !pcm.empty()) {
+            char wavPath[MAX_PATH];
+            sprintf_s(wavPath, MAX_PATH, "C:\\VoiceLogs\\%lld.wav", (long long)p->svrid);
+
+            // WAV 文件头（44 字节，PCM 16-bit mono）
+#pragma pack(push, 1)
+            struct WavHeader {
+                char     riff[4];       // "RIFF"
+                uint32_t riffSize;      // 文件大小 - 8
+                char     wave[4];       // "WAVE"
+                char     fmt[4];        // "fmt "
+                uint32_t fmtSize;       // 16
+                uint16_t fmtTag;        // 1 = PCM
+                uint16_t channels;      // 1 = mono
+                uint32_t sampleRate;    // 24000
+                uint32_t byteRate;     // sampleRate * channels * bits/8
+                uint16_t blockAlign;   // channels * bits/8
+                uint16_t bits;          // 16
+                char     data[4];       // "data"
+                uint32_t dataSize;     // PCM 字节数
+            };
+#pragma pack(pop)
+            static_assert(sizeof(WavHeader) == 44, "WAV header must be 44 bytes");
+
+            WavHeader hdr;
+            memcpy(hdr.riff, "RIFF", 4);
+            hdr.riffSize = (uint32_t)(36 + pcm.size());
+            memcpy(hdr.wave, "WAVE", 4);
+            memcpy(hdr.fmt, "fmt ", 4);
+            hdr.fmtSize    = 16;
+            hdr.fmtTag     = 1;
+            hdr.channels   = 1;
+            hdr.sampleRate = (uint32_t)sampleRate;
+            hdr.byteRate   = (uint32_t)sampleRate * 1 * 2;
+            hdr.blockAlign = 1 * 2;
+            hdr.bits       = 16;
+            memcpy(hdr.data, "data", 4);
+            hdr.dataSize   = (uint32_t)pcm.size();
+
+            HANDLE hWav = CreateFileA(wavPath, GENERIC_WRITE, 0, NULL,
+                                      CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+            if (hWav != INVALID_HANDLE_VALUE) {
+                DWORD written = 0;
+                WriteFile(hWav, &hdr, sizeof(hdr), &written, NULL);
+                WriteFile(hWav, pcm.data(), (DWORD)pcm.size(), &written, NULL);
+                CloseHandle(hWav);
+                PostLog(std::string("语音转换成功: ") + silkPath + " -> " + wavPath);
+            } else {
+                PostLog("语音转换: CreateFileA(wav) 失败");
+            }
+        } else {
+            PostLog("语音转换: SILK 解码失败，仅保留 .silk");
+        }
     }
 
     free(p->data);

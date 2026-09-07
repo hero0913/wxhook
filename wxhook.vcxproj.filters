@@ -74,6 +74,9 @@
     <ClInclude Include="src\wx\qr_url.h">
       <Filter>头文件\wx</Filter>
     </ClInclude>
+    <ClInclude Include="src\wx\silk_dec.h">
+      <Filter>头文件\wx</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\core\dllmain.cpp">
@@ -113,6 +116,9 @@
       <Filter>源文件\wx</Filter>
     </ClCompile>
     <ClCompile Include="src\wx\qr_url.cpp">
+      <Filter>源文件\wx</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wx\silk_dec.cpp">
       <Filter>源文件\wx</Filter>
     </ClCompile>
     <ClCompile Include="src\core\pch.cpp">

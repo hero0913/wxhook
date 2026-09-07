@@ -31,6 +31,9 @@ static constexpr bool ENABLE_IMAGE_DECODE = true;
 // 语音落盘保存：置 true 则 Hook 语音数据并保存 .silk 到 C:/VoiceLogs/
 static constexpr bool ENABLE_VOICE_SAVE = true;
 
+// 语音 SILK→WAV 转换：置 true 则在保存 .silk 后解码为 PCM 并输出 .wav
+static constexpr bool ENABLE_VOICE_CONVERT = true;
+
 // 注入后延迟启动（毫秒）：等待 WeChat 自身 DLL（如 wmpf_host_export.dll）
 // 完成初始化后再起 HTTP 服务 + 安装 Hook，避免时序冲突导致访问违例
 static constexpr DWORD STARTUP_DELAY_MS = 3000;
